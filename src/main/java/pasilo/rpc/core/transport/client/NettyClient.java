@@ -8,6 +8,11 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import lombok.extern.slf4j.Slf4j;
+import pasilo.rpc.core.loadbalance.LoadBalancePolicy;
+import pasilo.rpc.core.loadbalance.loadbalancer.RoundRobinPolicy;
+import pasilo.rpc.core.registry.Registry;
+import pasilo.rpc.core.registry.cache.ServiceMeta;
+import pasilo.rpc.core.registry.zookeeper.ZookeeperRegistry;
 import pasilo.rpc.core.transport.domain.RpcMessage;
 import pasilo.rpc.core.transport.protocol.ProtocolConstants;
 import pasilo.rpc.core.transport.protocol.RpcMessageDecoder;
@@ -26,6 +31,8 @@ public class NettyClient implements RpcClient {
 	private static final AtomicInteger REQUEST_ID_GENERATOR = new AtomicInteger(0);
 	private static NioEventLoopGroup group;
 	private static Bootstrap bootstrap;
+	private static Registry selector = new ZookeeperRegistry();
+	private static LoadBalancePolicy lb = new RoundRobinPolicy();
 
 	static {
 		group = new NioEventLoopGroup(1);
@@ -75,7 +82,12 @@ public class NettyClient implements RpcClient {
 		PendingResults.poolResult(requestId, resultFuture);
 		try {
 			// 这里进行service discovery、load balance
-			ChannelFuture f = bootstrap.connect("127.0.0.1", 20001).sync();
+			selector.subscribeService(rpcRequest.getInterfaceName());
+
+			ServiceMeta instance = lb.select(selector.getServiceList(rpcRequest.getInterfaceName()));
+			System.out.println(instance);
+
+			ChannelFuture f = bootstrap.connect(instance.getIpAddress(), instance.getPort()).sync();
 			f.channel().writeAndFlush(rpcMsg).addListener((ChannelFutureListener) future -> {
 				if (future.isSuccess()) {
 					log.info("client send message success.");

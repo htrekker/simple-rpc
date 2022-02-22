@@ -70,6 +70,9 @@ public class ZookeeperRegistry implements Registry {
 
 	@Override
 	public void subscribeService(String serviceName) {
+		if (ClientServiceCache.exists(serviceName)){
+			return;
+		}
 		zkClient.subscribeChildChanges(ZK_ROOT_PATH+serviceName, (parentPath, currentChilds) -> {
 			List<ServiceMeta> services = new ArrayList<>();
 			for (String child: currentChilds) {

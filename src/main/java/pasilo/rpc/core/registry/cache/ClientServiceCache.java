@@ -26,4 +26,8 @@ public class ClientServiceCache {
 		log.info("updating data");
 		serviceCache.replace(serviceName, services);
 	}
+
+	public static boolean exists(String serviceName) {
+		return serviceCache.containsKey(serviceName);
+	}
 }
